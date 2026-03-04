@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yash × Polymarket</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='0' y='0' width='15' height='32' fill='%2300e600'/><rect x='17' y='0' width='15' height='32' fill='%232E5CFF'/></svg>">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #050505;
+    --surface: #0a0a0a;
+    --border: #1a1a1a;
+    --border-hover: #2a2a2a;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --text-muted: #555;
+    --green: #00e600;
+    --green-dim: #00e60022;
+    --green-glow: #00e60044;
+    --poly-blue: #2E5CFF;
+    --poly-blue-dim: #2E5CFF22;
+    --poly-blue-glow: #2E5CFF44;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    cursor: default;
+  }
+
+
+  .timer-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--border);
+    z-index: 1000;
+  }
+  .timer-fill {
+    height: 100%;
+    background: var(--poly-blue);
+    width: 100%;
+    transition: width 1s linear;
+    box-shadow: 0 0 10px var(--poly-blue-glow);
+  }
+
+  .timer-container {
+    position: fixed;
+    top: 14px; right: 24px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .timer-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-display.running { color: var(--poly-blue); }
+  .timer-display.warning { color: #f59e0b; }
+  .timer-display.danger { color: #ef4444; }
+  .timer-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .timer-btn:hover { border-color: var(--poly-blue); color: var(--poly-blue); }
+
+  .slide-label {
+    position: fixed;
+    top: 14px; left: 24px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--poly-blue);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    z-index: 1000;
+  }
+
+  .progress {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 1000;
+  }
+  .progress-dot {
+    width: 6px; height: 6px;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .progress-dot.active {
+    background: var(--poly-blue);
+    box-shadow: 0 0 6px var(--poly-blue-glow);
+    width: 24px;
+  }
+  .progress-dot:hover { background: var(--text-muted); }
+
+  .nav-hint {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    z-index: 1000;
+  }
+  .nav-hint kbd {
+    display: inline-block;
+    border: 1px solid var(--poly-blue);
+    color: var(--poly-blue);
+    padding: 1px 5px;
+    font-size: 0.55rem;
+    margin: 0 2px;
+  }
+
+  .slides-wrapper {
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+  }
+  .slide-inner {
+    max-width: 960px;
+    width: 100%;
+  }
+
+  .hero-text {
+    font-size: 4.5rem;
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .hero-text .accent { color: var(--poly-blue); font-weight: 600; }
+  .hero-text .green-accent { color: var(--green); font-weight: 600; }
+  .hero-text .dim { color: var(--text-muted); }
+
+  .section-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--poly-blue);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-tag::before {
+    content: '';
+    width: 24px; height: 1px;
+    background: var(--poly-blue);
+  }
+
+  .section-title {
+    font-size: 2.2rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+
+  .section-body {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--text-dim);
+    max-width: 600px;
+    font-weight: 300;
+  }
+
+  .poly-logo {
+    height: 28px;
+    opacity: 0.9;
+    margin-bottom: 48px;
+  }
+
+  .poly-icon-corner {
+    position: fixed;
+    bottom: 20px; left: 24px;
+    z-index: 1000;
+    opacity: 0.2;
+  }
+  .poly-icon-corner svg { width: 20px; height: 20px; }
+
+
+
+  /* ─── PROJECT CARDS ────────────────────────── */
+  .project-card {
+    border: 1px solid var(--border);
+    padding: 24px;
+    background: var(--surface);
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .project-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--poly-blue), var(--green));
+    transform: scaleX(0);
+    transition: transform 0.4s;
+    transform-origin: left;
+  }
+  .project-card:hover { border-color: var(--border-hover); }
+  .project-card:hover::before { transform: scaleX(1); }
+
+  .card-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .card-desc {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 14px;
+    font-weight: 300;
+    max-width: 500px;
+  }
+  .card-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .stat-chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .stat-chip.green {
+    border-color: var(--green-dim);
+    color: var(--green);
+    background: var(--green-dim);
+  }
+  .stat-chip.blue {
+    border-color: var(--poly-blue-dim);
+    color: var(--poly-blue);
+    background: var(--poly-blue-dim);
+  }
+  .card-link {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    color: var(--green);
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .card-link::after { content: '→'; }
+  .card-status {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    margin-left: 8px;
+  }
+  .card-status.live {
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    background: var(--green-dim);
+  }
+  .card-status.dev {
+    border: 1px solid #f59e0b33;
+    color: #f59e0b;
+    background: #f59e0b11;
+  }
+
+  .tech-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+  }
+  .tech-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.48rem;
+    letter-spacing: 0.1em;
+    padding: 2px 5px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .reason-list {
+    list-style: none;
+    margin-top: 32px;
+  }
+  .reason-list li {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+  .reason-list li:first-child { border-top: 1px solid var(--border); }
+  .reason-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--poly-blue);
+    letter-spacing: 0.1em;
+    padding-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .contact-links {
+    display: flex;
+    gap: 16px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+  .contact-link {
+    border: 1px solid var(--border);
+    padding: 12px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--text-dim);
+    transition: all 0.3s;
+  }
+  .contact-link:hover {
+    border-color: var(--poly-blue);
+    color: var(--poly-blue);
+  }
+  .contact-link.primary {
+    background: var(--poly-blue);
+    border-color: var(--poly-blue);
+    color: #fff;
+  }
+  .contact-link.primary:hover {
+    background: #4B6FFF;
+    border-color: #4B6FFF;
+  }
+
+  .slide.active .stagger { animation: fadeUp 0.5s ease both; }
+  .slide.active .stagger:nth-child(1) { animation-delay: 0.1s; }
+  .slide.active .stagger:nth-child(2) { animation-delay: 0.2s; }
+  .slide.active .stagger:nth-child(3) { animation-delay: 0.3s; }
+  .slide.active .stagger:nth-child(4) { animation-delay: 0.4s; }
+  .slide.active .stagger:nth-child(5) { animation-delay: 0.5s; }
+  .slide.active .stagger:nth-child(6) { animation-delay: 0.6s; }
+  .slide.active .stagger:nth-child(7) { animation-delay: 0.7s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hl { color: var(--text); font-weight: 400; }
+
+</style>
+</head>
+<body>
+
+
+<div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+<div class="slide-label" id="slideLabel">01 / 06</div>
+<div class="timer-container">
+  <span class="timer-display" id="timerDisplay">30:00</span>
+  <button class="timer-btn" id="timerToggle" onclick="toggleTimer()">START</button>
+  <button class="timer-btn" onclick="resetTimer()">RESET</button>
+</div>
+<div class="progress" id="progress"></div>
+<div class="nav-hint"><kbd>←</kbd> <kbd>→</kbd> or scroll</div>
+
+<div class="poly-icon-corner">
+  <svg viewBox="0 0 2184 2184" fill="#2E5CFF" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0,2184) scale(0.1,-0.1)">
+      <path d="M10445 15709 c-2667 -764 -4860 -1391 -4872 -1394 l-23 -5 0 -3345 0 -3344 23 -7 c79 -25 9722 -2782 9724 -2780 2 1 2 2761 1 6133 l-3 6129 -4850 -1387z m3915 -1910 c0 -1939 -1 -2041 -17 -2037 -160 43 -7100 2032 -7105 2037 -7 6 7068 2037 7105 2040 16 1 17 -102 17 -2040z m-4263 -1806 c1976 -565 3591 -1028 3590 -1029 -4 -4 -7141 -2045 -7169 -2051 l-28 -5 0 2056 c0 1131 3 2056 8 2056 4 0 1623 -462 3599 -1027z m4263 -3864 l0 -2041 -27 5 c-16 3 -1617 460 -3560 1016 -1942 556 -3535 1011 -3539 1011 -4 0 -4 3 0 7 5 6 7095 2040 7119 2042 4 1 7 -918 7 -2040z"/>
+    </g>
+  </svg>
+</div>
+
+<div class="slides-wrapper">
+
+  <!-- SLIDE 1: LANDING -->
+  <div class="slide active" data-label="INTRO">
+    <div class="slide-inner">
+      <div class="stagger">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAB0CAMAAADEino2AAAAdVBMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////li2ZAAAAAJ3RSTlMAIG+/EECQ3/+A78+vf2CfMFBfcLBPj6ABIf5BEb7uzlHennGuYTHkRlXgAAAKN0lEQVR4AezTx3nDUAwEYbwMZrL/Zu0TTs5R0s6WsN8/9ltLuWRjmqutD3efjEkt0p/dXRgA6TsAFFcjfQDorfXFYwBQS3+d3R0ApA8A0geAytpWPAYArdX9eCV9AJD+rAuA9OeS0y4KgPRHb9XMVAGQvj1PGADpKwMgfQCQviQA0gcA6QOA9B8EADu/kT4A7nz16t9KHwD3vDO/nf4c6csBIH0v+bSYGgDSvyL9xwPAxjfSfwAA7I30j0gfAHIAytQsBgAtAPOxR/oPBiB8290s7tz/BkCkDwBJAONodhMAntg708VUfSaME5OACZRF3irFao//7f4v8T1dZKDP5KCOKV98PrWYdeY3E0hcFKsHAD+xBOiNWh6A4G5kah8ARAYAE8HCAMDg1AOAyABgIlgSAFSlHgBEB4ASweIAoDL7AOAm2S/VaGhevtiohQHg1T4AuEFqyKFo6LDy1C4PAGhzTwAeAPjCCxLBEgD4+o4APADI8KP+TCJYAAA1qLaN02tSdlcAHgC8S5WCRBAHgO8zyPjbgAcAYgDOEiSCiACQUsIxAgAPAISJID4ACS0DNgIADwCEiSA+AGqAM40AwAMAYSKID0CShgdtmlVVaV25po4EgLGrqtBFulHc1ZUN11Sl+xhbuqnn+ijTSldO3QSAKtOq0BUN5QYARIkgPgA29GIzeUhI1QwAWSCTUPtqXOndbXYUEvlmMGvq504qzNPQG1tIj4by5MnlPACK+mvD3fhKTSeFsgCAPBHEB8CMHURqMvbIIAyAo8nzGeZ/k0rPidmuJ9Kf7T9Nr2YbHPHWz4xND5GpzhEHAMCjEBj5yUMvNwAgTATxAUg8BeUgU8wdGQAANQ9SMkx1M6lUKiAsUwk5jPT0PTP54NgAAOoEAZjxv2J8lNVSAC5P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" alt="POLYMARKET" class="poly-logo">
+      </div>
+      <div class="hero-text stagger">
+        Hey <span class="accent">Dan</span><span class="dim">.</span>
+      </div>
+      <div class="hero-text stagger" style="margin-top: 8px;">
+        Hey <span class="accent">Polymarket</span><span class="dim">.</span>
+      </div>
+      <div class="hero-text stagger" style="margin-top: 8px;">
+        <span class="dim">I'm</span> <span class="green-accent">Yash</span><span class="dim">.</span>
+      </div>
+      <p class="section-body stagger" style="max-width: 520px;">
+        I notice patterns, get curious about them, and then I can't stop until I've built something
+        around them. I put this together for our chat, let me show you what I mean.
+      </p>
+      <div class="stagger" style="margin-top: 32px;">
+        <span class="section-tag" style="margin-bottom: 0;">SCROLL OR PRESS → TO BEGIN</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: WHO I AM -->
+  <div class="slide" data-label="ABOUT">
+    <div class="slide-inner">
+      <div class="section-tag stagger">About</div>
+      <h2 class="section-title stagger">I notice things most people scroll past.</h2>
+      <p class="section-body stagger">
+        Penn State, Engineering Management. I like taking messy questions
+        and turning them into something people can actually use.
+      </p>
+      <p class="section-body stagger" style="margin-top: 16px;">
+        I'm analytical but I think in product. I'll notice something interesting in data,
+        get curious about whether it's real, and before I know it I've scoped it, designed it,
+        and shipped it. Both projects I'll show you started exactly that way.
+      </p>
+      <p class="section-body stagger" style="margin-top: 16px;">
+        I don't really separate the thinking from the doing. If I'm looking at data,
+        I'm already thinking about what the product should feel like. If I'm designing something,
+        I'm already thinking about how it gets to the right people. I just like owning the whole loop.
+      </p>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: THREE AXIS -->
+  <div class="slide" data-label="THREE AXIS">
+    <div class="slide-inner">
+      <div class="section-tag stagger">Project 01</div>
+      <a href="https://threeaxis.space" target="_blank" class="project-card stagger">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <div class="card-tag">SaaS Platform — Live</div>
+                <div class="card-title">Three Axis <span class="card-status live">LIVE</span></div>
+                <div class="card-desc">
+                  Hedge funds pay for satellite imagery of parking lots, shipping data, weather feeds,
+                  anything from outside the financial system that might contain signal. Three Axis is
+                  that same idea, exogenous data overlaid directly on financial charts so users can
+                  explore whether it correlates with price action. Think alternative data platform,
+                  not a prediction tool. Live with a handful of paying users, still working on accuracy
+                  reports and GTM, haven't officially launched yet.
+                </div>
+              </div>
+            </div>
+            <div class="card-stats">
+              <span class="stat-chip green">Live — Pre-Launch</span>
+              <span class="stat-chip">Product + Design + Eng</span>
+              <span class="stat-chip">Full Stack</span>
+            </div>
+            <div class="tech-row">
+              <span class="tech-badge">Next.js 16</span>
+              <span class="tech-badge">React 19</span>
+              <span class="tech-badge">FastAPI</span>
+              <span class="tech-badge">ECharts</span>
+              <span class="tech-badge">D3.js</span>
+              <span class="tech-badge">PostgreSQL</span>
+              <span class="tech-badge">Stripe</span>
+            </div>
+        <div class="card-link">Visit threeaxis.space</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: CYCLE X -->
+  <div class="slide" data-label="CYCLE X">
+    <div class="slide-inner">
+      <div class="section-tag stagger">Project 02</div>
+      <a href="https://yashtatineni.framer.website/cycle-x/cycle-xx" target="_blank" class="project-card stagger">
+            <div>
+              <div class="card-tag">Prediction Engine — Any Time Series</div>
+              <div class="card-title">Cycle X <span class="card-status dev">IN DEV</span></div>
+              <div class="card-desc">
+                Imagine knowing precisely where the 2020 COVID crash and its bottom would land. Or the
+                2024 correction. Or the 2025 drop. Cycle X does that. It applies a proprietary
+                geometric transformation to price data, maps it into a coordinate space where market
+                dynamics become linear and measurable, then uses feature engineering on historical
+                swing structures to predict where the next one completes. Validated out of sample.
+                Works on any time series, mainly equities. Tested it on Polymarket contracts through
+                the Dome API, promising results, but prediction market data doesn't swing with the
+                same volatility, so still early there.
+              </div>
+            </div>
+            <div class="card-stats">
+              <span class="stat-chip blue">Any Time Series</span>
+              <span class="stat-chip blue">Tested on Dome API</span>
+              <span class="stat-chip green">Backtested</span>
+              <span class="stat-chip">Out-of-Sample Validated</span>
+            </div>
+            <div class="tech-row">
+              <span class="tech-badge">Python</span>
+              <span class="tech-badge">Dash / Plotly</span>
+              <span class="tech-badge">scipy</span>
+              <span class="tech-badge">scikit-learn</span>
+              <span class="tech-badge">Dome API</span>
+              <span class="tech-badge">yfinance</span>
+            </div>
+        <div class="card-link">View Cycle X</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: WHY POLYMARKET -->
+  <div class="slide" data-label="WHY POLYMARKET">
+    <div class="slide-inner">
+      <div class="section-tag stagger">Why I'm Here</div>
+      <h2 class="section-title stagger">Why <span style="color: var(--poly-blue);">Polymarket</span></h2>
+      <ul class="reason-list">
+        <li class="stagger">
+          <span class="reason-num">01</span>
+          <span>I genuinely didn't think a product like this could exist. Real money, real probabilities, no editorial spin. The first time I saw it I thought "this is going to be massive," and I still think we're early. This space moves fast, and that's exactly where my brain comes alive.</span>
+        </li>
+        <li class="stagger">
+          <span class="reason-num">02</span>
+          <span>I just want to work on something I actually care about. My analytical side, my product instincts, the way I think about markets, all of that lights up when I look at what Polymarket is doing. I can think like a market analyst, operate like an ops person, and ship like a product builder. I just want to do all of it here.</span>
+        </li>
+        <li class="stagger">
+          <span class="reason-num">03</span>
+          <span>Nobody told me to test Cycle X on Polymarket contracts through the Dome API. I just wanted to see if it would work. That's how I operate, if something's interesting, I'm already in it.</span>
+        </li>
+        <li class="stagger">
+          <span class="reason-num">04</span>
+          <span>I'm easy to get up to speed. New tech, new tools, new domain, I'll learn it. That's never been the thing that slows me down.</span>
+        </li>
+        <li class="stagger">
+          <span class="reason-num">05</span>
+          <span>I come in with a bag full of happy energy. I like getting things done and I like making the people around me feel good while we're doing it.</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: LET'S TALK -->
+  <div class="slide" data-label="LET'S TALK">
+    <div class="slide-inner" style="text-align: center;">
+      <div class="hero-text stagger" style="font-size: 3.5rem;">
+        Looking <span class="accent">forward</span> to the call<span class="dim">.</span>
+      </div>
+      <p class="section-body stagger" style="margin: 20px auto 0; text-align: center; max-width: 420px;">
+        Really appreciate the time, Dan.
+      </p>
+      <div class="contact-links stagger" style="margin-top: 36px; justify-content: center;">
+        <a href="https://www.linkedin.com/in/yashwanthsaitatineni/" target="_blank" class="contact-link">LINKEDIN</a>
+        <a href="https://github.com/yt6363" target="_blank" class="contact-link">GITHUB</a>
+        <a href="https://yashtatineni.framer.website" target="_blank" class="contact-link">PORTFOLIO</a>
+        <a href="https://drive.google.com/file/d/1dWd50CsadNTW0Bmo-jd-s5s8l2Dd_24U/view?usp=sharing" target="_blank" class="contact-link primary">RESUME</a>
+      </div>
+      <p class="stagger" style="margin-top: 48px; font-family: 'Space Mono', monospace; font-size: 0.55rem; color: var(--text-muted); letter-spacing: 0.2em;">
+        YASH TATINENI — PENN STATE — MARCH 2026
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ═══════════════════════════════════════════════
+  //  SLIDES
+  // ═══════════════════════════════════════════════
+  const slides = document.querySelectorAll('.slide');
+  const progressEl = document.getElementById('progress');
+  const slideLabel = document.getElementById('slideLabel');
+  let currentSlide = 0;
+
+  slides.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    progressEl.appendChild(dot);
+  });
+
+  function goToSlide(n) {
+    if (n < 0 || n >= slides.length || n === currentSlide) return;
+    slides[currentSlide].classList.remove('active');
+    currentSlide = n;
+    slides[currentSlide].classList.add('active');
+    document.querySelectorAll('.progress-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === currentSlide);
+    });
+    const label = slides[currentSlide].dataset.label || '';
+    slideLabel.textContent = String(currentSlide + 1).padStart(2, '0') + ' / ' +
+      String(slides.length).padStart(2, '0') + (label ? '  —  ' + label : '');
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); goToSlide(currentSlide + 1);
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); goToSlide(currentSlide - 1);
+    }
+  });
+
+  let scrollTimeout = false;
+  document.addEventListener('wheel', (e) => {
+    if (scrollTimeout) return;
+    scrollTimeout = true;
+    setTimeout(() => scrollTimeout = false, 1400);
+    if (e.deltaY > 0) goToSlide(currentSlide + 1);
+    else goToSlide(currentSlide - 1);
+  }, { passive: true });
+
+  let touchStartY = 0;
+  document.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; });
+  document.addEventListener('touchend', (e) => {
+    const diff = touchStartY - e.changedTouches[0].clientY;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) goToSlide(currentSlide + 1);
+      else goToSlide(currentSlide - 1);
+    }
+  });
+
+  goToSlide(0);
+
+  // ═══════════════════════════════════════════════
+  //  TIMER
+  // ═══════════════════════════════════════════════
+  let totalSeconds = 30 * 60;
+  let remainingSeconds = totalSeconds;
+  let timerInterval = null;
+  let timerRunning = false;
+
+  const timerDisplay = document.getElementById('timerDisplay');
+  const timerFill = document.getElementById('timerFill');
+  const timerToggle = document.getElementById('timerToggle');
+
+  function updateTimerDisplay() {
+    const m = Math.floor(remainingSeconds / 60);
+    const s = remainingSeconds % 60;
+    timerDisplay.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    timerFill.style.width = ((remainingSeconds / totalSeconds) * 100) + '%';
+    timerDisplay.className = 'timer-display';
+    if (timerRunning) {
+      if (remainingSeconds <= 120) timerDisplay.classList.add('danger');
+      else if (remainingSeconds <= 300) timerDisplay.classList.add('warning');
+      else timerDisplay.classList.add('running');
+    }
+  }
+
+  function toggleTimer() {
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerToggle.textContent = 'START';
+    } else {
+      timerRunning = true;
+      timerToggle.textContent = 'PAUSE';
+      timerInterval = setInterval(() => {
+        if (remainingSeconds > 0) { remainingSeconds--; updateTimerDisplay(); }
+        else { clearInterval(timerInterval); timerRunning = false; timerToggle.textContent = 'DONE'; }
+      }, 1000);
+    }
+    updateTimerDisplay();
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    remainingSeconds = totalSeconds;
+    timerToggle.textContent = 'START';
+    updateTimerDisplay();
+  }
+
+  updateTimerDisplay();
+</script>
+</body>
+</html>
